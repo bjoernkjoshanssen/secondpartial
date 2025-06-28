@@ -2,18 +2,15 @@ import Mathlib.Analysis.Calculus.LocalExtr.Basic
 import Mathlib.Analysis.Calculus.Gradient.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Analysis.Calculus.ContDiff.FTaylorSeries
-import Mathlib.Algebra.Group.Pi.Basic
-import Mathlib.Analysis.Calculus.ContDiff.Basic
 import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 import Mathlib.LinearAlgebra.QuadraticForm.Basic
-import Mathlib.Data.Matrix.Defs
 
 
 
 /-!
 # Towards a formalization of the Second Partial Derivatives Test
 
-Project members: Asaf, Erin, Janani
+Project members: Asaf, Erin, Janani, Martin
 
  -/
 
@@ -266,6 +263,61 @@ theorem second_partial_deriv_test_for_deg_two'' {n : ℕ}
         congr
         ext i j
         fin_cases i <;> simp) h₀ hQQ
+
+/-- This version generalizes the 1-variable 2nd derivative test. -/
+theorem isLocalMin_of_IsCoercive_of_Littleo {n : ℕ}
+    {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)}
+    (h : (fun x => |f x - higher_taylor f x₀ 2 x|) =o[nhds x₀] fun x => ‖x - x₀‖ ^ 2)
+    (h₀ : gradient f x₀ = 0)
+    (hQQ : IsCoercive (continuousBilinearMap_of_continuousMultilinearMap
+        (iteratedFDeriv ℝ 2 f x₀))) :
+    IsLocalMin f x₀ := by
+  obtain ⟨C,hC⟩ := hQQ
+  simp [Asymptotics.IsLittleO, Asymptotics.IsBigOWith] at h
+  apply Filter.Eventually.mono <| h (half_pos hC.1)
+  intro x
+  have h₄ := hC.2 (x - x₀)
+  simp [continuousBilinearMap_of_continuousMultilinearMap] at h₄
+  have h₃ : ∑ x_1 ∈ Finset.range 3, higher_taylor_coeff f x₀ x_1 x
+   = higher_taylor_coeff f x₀ 0 x + higher_taylor_coeff f x₀ 1 x +
+     higher_taylor_coeff f x₀ 2 x := by
+    repeat rw [Finset.range_succ]; simp
+    linarith
+  simp [higher_taylor]
+  rw [h₃]
+  simp [higher_taylor_coeff]
+  intro h₁
+  have h₂ : inner ℝ (gradient f x₀) (x - x₀) = (fderiv ℝ f x₀) (x - x₀) := by
+    unfold gradient; simp
+  rw [h₀] at h₂
+  simp at h₂
+  rw [← h₂] at h₁
+  simp at h₁
+  rw [mul_assoc,show ![x - x₀, x - x₀] = fun _ => x - x₀ by
+    ext i j; fin_cases i <;> simp] at h₄
+  rw [(Lean.Grind.Semiring.pow_two ‖x - x₀‖).symm] at h₄
+  have h₅ : - (f x - (f x₀ + 2⁻¹ * (iteratedFDeriv ℝ 2 f x₀) fun x_1 ↦ x - x₀))
+    ≤ (C / 2) * ‖x - x₀‖ ^ 2 := le_of_max_le_right h₁
+  ring_nf at h₅
+  linarith
+  --   let d := ‖iteratedFDeriv ℝ 2 f x₀‖
+
+-- instance : NontriviallyNormedField (EuclideanSpace ℝ (Fin 1)) := by
+--     refine {
+--             toNormedField := {
+
+--             }
+--             non_trivial := by use ![2];sorry
+--     }
+
+-- theorem getone {n : ℕ}
+--     {f : EuclideanSpace ℝ (Fin 1) → ℝ} {x₀ : EuclideanSpace ℝ (Fin 1)}
+--     (h : (fun x => |f x - higher_taylor f x₀ 2 x|) =o[nhds x₀] fun x => ‖x - x₀‖ ^ 2)
+--     (h₀ : deriv (deriv f) x₀ > 0) :
+--     IsCoercive (continuousBilinearMap_of_continuousMultilinearMap
+--         (iteratedFDeriv ℝ 2 f x₀)) := by
+--   simp [continuousBilinearMap_of_continuousMultilinearMap, IsCoercive]
+--   sorry
 
 /-!
 
