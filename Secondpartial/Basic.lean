@@ -6,6 +6,9 @@ import Mathlib.Algebra.Group.Pi.Basic
 import Mathlib.Analysis.Calculus.ContDiff.Basic
 import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 import Mathlib.LinearAlgebra.QuadraticForm.Basic
+import Mathlib.Data.Matrix.Defs
+
+
 
 /-!
 # Towards a formalization of the Second Partial Derivatives Test
@@ -278,11 +281,67 @@ example (a b c d : ℝ) (f : EuclideanSpace ℝ (Fin 2) → ℝ) (x₀ : Euclide
     sorry
 
 
-example (a b c d : ℝ) (f : EuclideanSpace ℝ (Fin 2) → ℝ) (x₀ : EuclideanSpace ℝ (Fin 2))
-    (h : ∀ x y, f ![x, y] = a * x ^ 2 + b * x * y + c * y ^ 2 + d) :
-    ∀ x, f x = f x₀ + inner ℝ (gradient f x₀) (x - x₀) + (1 / 2) * hessianQuadraticMap f x₀ (x - x₀)
-    := by
-    sorry
+example (a b c d j k : ℝ) (f : EuclideanSpace ℝ (Fin 2) → ℝ) (x' : EuclideanSpace ℝ (Fin 2))
+(h : ∀ x y, f ![x, y] = a * x ^ 2 + b * x * y + c * y ^ 2 + d + j * x + k * y) :
+∀ x, f x = f x' + inner ℝ (gradient f x') (x - x') + (1 / 2) * hessianQuadraticMap f x' (x - x')
+:= by
+    intro x
+
+    let x₁ := x 0
+    let x₂ := x 1
+    let x'₁ := x' 0
+    let x'₂ := x' 1
+
+    have fx : f x = f ![x₁, x₂] := by
+      congr
+      ext i
+      fin_cases i <;> simp [x₁, x₂]
+    have fx' : f x' = f ![x'₁, x'₂] := by
+      congr
+      ext i
+      fin_cases i <;> simp [x'₁, x'₂]
+    rw [fx, fx']
+
+    have fx_eq := h x₁ x₂
+    rw [fx_eq]
+
+    have fx'_eq := h x'₁ x'₂
+    rw [fx'_eq]
+
+-- not sure how to get lean to calculate this or the hessian
+    let grad_fx' : EuclideanSpace ℝ (Fin 2) :=
+      ![2 * a * x'₁ + b * x'₂ + j, b * x'₁ + 2 * c * x'₂ + k]
+
+    let hess : Matrix (Fin 2) (Fin 2) ℝ := !![2 * a, b; b, 2 * c]
+    let lin_hess := Matrix.toEuclideanLin hess
+    let dx := x - x'
+
+    have grad_eq : gradient f x' = grad_fx' := by
+      sorry
+    rw [grad_eq]
+
+
+    have hess_eq : hessianQuadraticMap f x' dx = inner ℝ (lin_hess dx) dx := by
+      sorry
+    rw [hess_eq]
+
+--everyone, say thank you chat for these
+
+    have inner_grad :
+      inner ℝ grad_fx' dx =  (2 * a * x'₁ + b * x'₂ + j) * (x₁ - x'₁) +
+      (b * x'₁ + 2 * c * x'₂ + k) * (x₂ - x'₂) := by
+        simp [inner, grad_fx', dx]
+        ring
+    rw [inner_grad]
+
+    have inner_hess :
+      inner ℝ (lin_hess dx) dx = 2 * a * (x₁ - x'₁)^2 + 2 * c *
+      (x₂ - x'₂)^2 + 2 * b * (x₁ - x'₁) * (x₂ - x'₂) := by
+        simp
+        sorry
+    rw [inner_hess]
+
+    linarith
 
 theorem getCoercive {n : ℕ}
     {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)}
