@@ -127,7 +127,7 @@ noncomputable def hessianBilinearCompanion₀ {n : ℕ}
 
 /-- Unnecessarily complicated.
  For a more familiar constructor when R is a ring, see QuadraticMap.ofPolar -/
-noncomputable def hessianQuadraticMap {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
+noncomputable def iteratedFDerivQuadraticMap {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
     (x₀ : EuclideanSpace ℝ (Fin n)) :
   QuadraticMap ℝ (EuclideanSpace ℝ (Fin n)) ℝ :=
   {
@@ -187,22 +187,7 @@ lemma sphere_min_of_pos_of_nonzero {n : ℕ} (f : EuclideanSpace ℝ (Fin n.succ
           exact continuous_subtype_val) h₀
   use m
 
-theorem continuous_hessian {n : ℕ}
-    {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)} :
-    Continuous (hessianQuadraticMap f x₀) := by
-  show Continuous fun y ↦ (iteratedFDeriv ℝ 2 f x₀) ![y, y]
-  refine Continuous.comp' ?_ ?_
-  · exact ContinuousMultilinearMap.coe_continuous (iteratedFDeriv ℝ 2 f x₀)
-  · refine Continuous.matrixVecCons continuous_id'
-      <| Continuous.matrixVecCons continuous_id' continuous_const
 
-
-lemma minimum_hessian {n : ℕ}
-    {f : EuclideanSpace ℝ (Fin n.succ) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n.succ)}
-  (hf : (hessianQuadraticMap f x₀).PosDef) :
-    ∃ x : Metric.sphere 0 1, ∀ y : Metric.sphere 0 1,
-    (hessianQuadraticMap f x₀) x.1 ≤ (hessianQuadraticMap f x₀) y.1 := by
-  exact @sphere_min_of_pos_of_nonzero n (hessianQuadraticMap f x₀) continuous_hessian hf
 
 
 
@@ -272,9 +257,26 @@ lemma getCoercive₀ {f : EuclideanSpace ℝ (Fin 0) → ℝ}
     rw [iteratedFDeriv]
     simp
 
+theorem continuous_hessian' {k n : ℕ}
+    {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)} :
+    Continuous fun y ↦ (iteratedFDeriv ℝ k f x₀) fun _ => y := by
+  refine Continuous.comp' ?_ ?_
+  · exact (iteratedFDeriv ℝ k f x₀).coe_continuous
+  · exact continuous_pi <| fun _ => continuous_id'
+
+
+theorem continuous_hessian {n : ℕ}
+    {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)} :
+    Continuous fun y ↦ (iteratedFDeriv ℝ 2 f x₀) ![y, y] := by
+  convert @continuous_hessian' (k := 2) n f x₀ using 3
+  ext i j
+  fin_cases i <;> simp
+  -- (iteratedFDeriv ℝ 2 f x₀).coe_continuous.comp'
+  --   <| continuous_id'.matrixVecCons <| continuous_id'.matrixVecCons continuous_const
+
 lemma getCoercive {n : ℕ} {f : EuclideanSpace ℝ (Fin n) → ℝ}
     {x₀ : EuclideanSpace ℝ (Fin n)}
-    (hf : (hessianQuadraticMap f x₀).PosDef) :
+    (hf : (iteratedFDerivQuadraticMap f x₀).PosDef) :
     IsCoercive (continuousBilinearMap_of_continuousMultilinearMap
         (iteratedFDeriv ℝ 2 f x₀)) := by
   by_cases H : n = 0
@@ -282,14 +284,15 @@ lemma getCoercive {n : ℕ} {f : EuclideanSpace ℝ (Fin n) → ℝ}
     exact @getCoercive₀ f x₀
   obtain ⟨m,hm⟩ : ∃ m : ℕ, n = m.succ := by exact Nat.exists_eq_succ_of_ne_zero H
   subst hm
-  have := @minimum_hessian m f x₀ hf
+  have := @sphere_min_of_pos_of_nonzero m (iteratedFDerivQuadraticMap f x₀)
+    continuous_hessian hf
   simp [IsCoercive, continuousBilinearMap_of_continuousMultilinearMap]
-  simp [hessianQuadraticMap] at this
+  simp [iteratedFDerivQuadraticMap] at this
   obtain ⟨m,hm⟩ := this
   have := hm.2
   use (iteratedFDeriv ℝ 2 f x₀) ![m, m]
   have := hf m (by intro hc;subst hc;simp at hm)
-  simp [hessianQuadraticMap] at this
+  simp [iteratedFDerivQuadraticMap] at this
   constructor
   · exact this
   · intro u
@@ -336,7 +339,7 @@ lemma getCoercive {n : ℕ} {f : EuclideanSpace ℝ (Fin n) → ℝ}
 noncomputable def higher_taylor_coeff {n : ℕ}
     (f : EuclideanSpace ℝ (Fin n) → ℝ) (x₀ : EuclideanSpace ℝ (Fin n)) (k : ℕ) :=
     fun x =>
-    (1 / Nat.factorial k) * (iteratedFDeriv ℝ k f x₀ fun _ => x - x₀)
+    (1 / Nat.factorial k : ℝ) * (iteratedFDeriv ℝ k f x₀ fun _ => x - x₀)
 
 noncomputable def higher_taylor {n : ℕ}
     (f : EuclideanSpace ℝ (Fin n) → ℝ) (x₀ : EuclideanSpace ℝ (Fin n)) (k : ℕ) :
@@ -350,7 +353,7 @@ theorem isLocalMin_of_PosDef_of_Littleo {n : ℕ}
     {f : EuclideanSpace ℝ (Fin n) → ℝ} {x₀ : EuclideanSpace ℝ (Fin n)}
     (h : (fun x => |f x - higher_taylor f x₀ 2 x|) =o[nhds x₀] fun x => ‖x - x₀‖ ^ 2)
     (h₀ : gradient f x₀ = 0)
-    (hf : (hessianQuadraticMap f x₀).PosDef)
+    (hf : (iteratedFDerivQuadraticMap f x₀).PosDef)
      :
     IsLocalMin f x₀ := by
   have hQQ : IsCoercive (continuousBilinearMap_of_continuousMultilinearMap
@@ -383,6 +386,150 @@ theorem isLocalMin_of_PosDef_of_Littleo {n : ℕ}
     ≤ (C / 2) * ‖x - x₀‖ ^ 2 := le_of_max_le_right h₁
   ring_nf at h₅
   linarith
+
+lemma eliminate_higher_taylor_coeff {n : ℕ} {r : NNReal}
+  (f : EuclideanSpace ℝ (Fin n) → ℝ)
+  (x₀ x : EuclideanSpace ℝ (Fin n))
+  (p : FormalMultilinearSeries ℝ (EuclideanSpace ℝ (Fin n)) ℝ)
+  (h : @HasFPowerSeriesOnBall ℝ (EuclideanSpace ℝ (Fin n)) ℝ _
+    _ _ _ _ f p x₀ r) (k : ℕ) :
+  (p k) (fun _ => x - x₀) = higher_taylor_coeff f x₀ k x := by
+  have h₀ := @HasFPowerSeriesOnBall.factorial_smul ℝ _
+    (EuclideanSpace ℝ (Fin n)) _ _ ℝ _ _ p f x₀ r h (x - x₀) _ k
+  unfold higher_taylor_coeff
+  rw [← h₀]
+  norm_num
+  rw [← smul_eq_mul]
+  rw [← smul_eq_mul]
+  rw [← smul_assoc]
+  have : ((Nat.factorial k : ℝ)⁻¹) • (Nat.factorial k : ℝ) = 1 := by
+    ring_nf
+    field_simp
+  rw [this]
+  simp
+
+
+
+lemma littleO_of_powerseries {n : ℕ}
+    {f : EuclideanSpace ℝ (Fin n) → ℝ}
+    {x₀ : EuclideanSpace ℝ (Fin n)}
+    {p : FormalMultilinearSeries ℝ (EuclideanSpace ℝ (Fin n)) ℝ}
+    (h₀ : gradient f x₀ = 0) {r : NNReal} (hr : 0 < r)
+    (h₁ : HasFPowerSeriesOnBall f p x₀ r) :
+        (fun x => |f x - p.partialSum 3 (x - x₀)|)
+          =o[nhds x₀]
+          fun x => ‖x - x₀‖ ^ 2 := by
+  simp [Asymptotics.IsLittleO, Asymptotics.IsBigOWith]
+  intro D hD
+  obtain ⟨a,ha⟩ := HasFPowerSeriesOnBall.uniform_geometric_approx' h₁ (by
+      show ENNReal.ofNNReal ((r / 2)) < r
+      simp
+      refine ENNReal.half_lt_self ?_ ?_
+      · simp
+        intro hc
+        subst hc
+        simp at hr
+      · simp)
+  obtain ⟨C,hC⟩ := ha.2
+  have h₃ (x) := hC.2 (x - x₀)
+  refine eventually_nhds_iff.mpr ?_
+  use Metric.ball x₀ (min (r/2) (D / (C * (a * (2/r))^3)))
+  constructor
+  · intro x hx
+    have h₂ := h₃ x (by aesop) 3
+    simp at h₂
+    apply h₂.trans
+    simp at hx
+    by_cases H : ‖x-x₀‖ = 0
+    · have : x - x₀ = 0 := norm_eq_zero.mp H
+      have : x = x₀ := by
+        refine PiLp.ext ?_
+        intro i
+        have : (x - x₀) i = 0 := congrFun this i
+        simp_all
+        linarith
+      subst this
+      simp
+    suffices  (C * (a * (‖x - x₀‖ / (↑r / 2))) ^ 3) * ‖x-x₀‖⁻¹
+                               ≤ (D * ‖x - x₀‖ ^ 2) * ‖x-x₀‖⁻¹ by
+      apply le_of_mul_le_mul_right this
+      aesop
+    nth_rewrite 2 [mul_assoc]
+    have : (‖x - x₀‖ ^ 2 * ‖x - x₀‖⁻¹) = ‖x - x₀‖ := by
+      rw [pow_two]
+      field_simp
+    rw [this]
+    suffices C * (a * (‖x - x₀‖ / (↑r / 2))) ^ 3 * ‖x - x₀‖⁻¹  * ‖x-x₀‖⁻¹
+           ≤ D * ‖x - x₀‖  * ‖x-x₀‖⁻¹ by
+      apply le_of_mul_le_mul_right this
+      aesop
+    nth_rewrite 3 [mul_assoc]
+    have : (‖x - x₀‖ * ‖x - x₀‖⁻¹) = 1 := by field_simp
+    rw [this]
+    simp
+    have :  C * (a * (‖x - x₀‖ / (↑r / 2))) ^ 3 * ‖x - x₀‖⁻¹ * ‖x - x₀‖⁻¹
+         =  C * (a * (1 / (↑r / 2))) ^ 3 * ‖x - x₀‖  := by
+        field_simp
+        ring_nf
+    rw [this]
+    have := hx.2
+    conv at this =>
+      left
+      change ‖x - x₀‖
+    simp at this ⊢
+    let Q :=  (C * (a * (2 / ↑r)) ^ 3)
+    conv at this =>
+      right
+      right
+      change Q
+    have : Q * ‖x - x₀‖ ≤ Q * (D / Q) := by
+      refine (mul_le_mul_iff_of_pos_left ?_).mpr <| le_of_lt this
+      simp [Q]
+      aesop
+    convert this using 2
+    field_simp
+    ring_nf
+    rw [mul_comm Q D, mul_assoc]
+    have : Q ≠ 0 := by
+      simp [Q]
+      constructor
+      aesop
+      constructor
+      intro hc
+      subst hc
+      have := ha.1
+      simp at this
+      intro hc
+      subst hc
+      have := ha.1
+      simp at this
+      aesop
+    have : Q * Q⁻¹ = 1 := by
+      field_simp
+    rw [this]
+    simp
+  · constructor
+    · exact Metric.isOpen_ball
+    · simp
+      constructor
+      · tauto
+      · simp_all
+
+theorem second_derivative_test {n : ℕ}
+    {f : EuclideanSpace ℝ (Fin n) → ℝ}
+    {x₀ : EuclideanSpace ℝ (Fin n)}
+    {p : FormalMultilinearSeries ℝ (EuclideanSpace ℝ (Fin n)) ℝ}
+    (h₀ : gradient f x₀ = 0) {r : NNReal} (hr : 0 < r)
+    (h₁ : HasFPowerSeriesOnBall f p x₀ r)
+    (hf : (iteratedFDerivQuadraticMap f x₀).PosDef) : IsLocalMin f x₀ := by
+have : (fun x ↦ |f x - ∑ x_1 ∈ Finset.range (2 + 1), (p x_1) fun x_2 ↦ x - x₀|)
+     = (fun x ↦ |f x - ∑ x_1 ∈ Finset.range (2 + 1), higher_taylor_coeff f x₀ x_1 x|) := by
+  ext
+  congr
+  ext
+  rw [eliminate_higher_taylor_coeff f x₀ _ p h₁]
+exact isLocalMin_of_PosDef_of_Littleo (this ▸ littleO_of_powerseries h₀ hr h₁) h₀ hf
+
 
 
 lemma better_types (f : EuclideanSpace ℝ (Fin 1) → EuclideanSpace ℝ (Fin 1)) (hf : f = fun x => x)
@@ -423,3 +570,95 @@ lemma Then  {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
     rw [deriv_fun_smul differentiableAt_fun_id <| differentiableAt_const h]
     simp
   rw [this]
+
+
+
+
+-- theorem isLocalMin_of_deriv_deriv_pos_NEW {f : ℝ → ℝ} {x₀ : ℝ}
+--   (hf : deriv (deriv f) x₀ > 0) (hd : deriv f x₀ = 0) (hc : ContinuousAt f x₀) :
+--   IsLocalMin f x₀ := by
+--   let F : EuclideanSpace ℝ (Fin 1) → ℝ := fun x => f (x 0)
+--   suffices IsLocalMin F (fun _ => x₀) by
+--     simp [IsLocalMin, IsMinFilter] at this ⊢
+--     simp [F] at this
+--     have h₀ := (@Filter.eventually_map (f := nhds fun _ : Fin 1 => x₀)
+--       (m := fun r => r 0)
+--       (P := fun x => f x₀ ≤ f x)).mpr this
+--     refine Filter.eventually_iff_exists_mem.mpr ?_
+--     rw [Filter.eventually_iff_exists_mem] at h₀
+--     simp at h₀
+--     obtain ⟨v,hv⟩ := h₀
+--     use v
+--     constructor
+--     · simp [nhds_pi] at hv
+--       have := hv.1
+--       simp [Filter.pi] at this
+--       exact Filter.exists_mem_subset_iff.mp this
+--     · tauto
+--   have := @isLocalMin_of_PosDef_of_Littleo 1 F ![x₀]
+--     (by
+--       simp [higher_taylor, higher_taylor_coeff]
+--       rw [Finset.range_succ]
+--       simp
+--       rw [Finset.range_succ]
+--       simp [F]
+--       -- use Taylor's theorem for 1 variable
+--       sorry) (by
+--       simp [F,gradient]
+--       rw [← fderiv_deriv] at hd
+--       clear F
+--       rw [fderiv] at hd ⊢
+--       ext i
+--       simp
+--       -- use hd
+--       sorry) (by
+--         simp [iteratedFDerivQuadraticMap]
+--         intro x hx
+--         show 0 < (iteratedFDeriv ℝ 2 F ![x₀]) ![x, x]
+--         rw [iteratedFDeriv_two_apply]
+--         simp
+--         rw [← fderiv_deriv] at hf
+--         -- use hf
+--         sorry)
+--   convert this using 1
+--   ext i
+--   have : i = 0 := Fin.fin_one_eq_zero i
+--   subst this
+--   simp
+
+-- example : IsLocalMin (fun x : EuclideanSpace ℝ (Fin 1) => x 0^2) 0 := by
+--   have := @isLocalMin_of_PosDef_of_Littleo 1 (fun x => x 0^2) 0
+--     (by
+--       simp [higher_taylor, higher_taylor_coeff]
+--       simp [Asymptotics.IsLittleO, Asymptotics.IsBigOWith]
+--       intro c hc
+--       refine Filter.Eventually.of_forall ?_
+--       intro x
+--       suffices  |x 0 ^ 2 - ∑ x_1 ∈ Finset.range 3,
+--         ((↑x_1.factorial : ℝ))⁻¹ * (iteratedFDeriv ℝ x_1 (fun x ↦ x 0 ^ 2) 0) fun x_2 ↦ x| = 0 by
+--         rw [this]
+--         simp
+--         positivity
+--       apply abs_eq_zero.mpr
+
+--       sorry)
+--     (by simp [gradient];sorry)
+--     (by
+--       simp [iteratedFDerivQuadraticMap]
+--       intro x hx
+--       show 0 < (iteratedFDeriv ℝ 2 (fun x ↦ x 0 ^ 2) 0) ![x, x]
+--       rw [iteratedFDeriv_two_apply]
+--       simp
+--       have : fderiv ℝ (fun x : EuclideanSpace ℝ (Fin 1) ↦ x 0 ^ 2) =
+--         fun y => {
+--         toFun := fun t => 2 * t 0 * y 0
+--         map_add' := by sorry
+--         map_smul' := by sorry
+--         cont := by sorry
+--       } := by
+--         ext i j
+--         simp
+
+--         sorry
+--       sorry)
+--   exact this
